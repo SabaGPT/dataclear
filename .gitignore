@@ -1,0 +1,10 @@
+# MinerU配置（含API token）
+config/config.json
+
+# 数据文件（PDF、图片、JSON、docx等）
+data/
+
+# 临时文件
+*.tmp
+*.tmp.md
+__pycache__/
