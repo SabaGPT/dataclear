@@ -31,6 +31,7 @@ def convert_markdown_to_docx(
     input_md: Path,
     output_docx: Path,
     reference_doc: Path | None = None,
+    resource_path: str = ".",
 ) -> None:
     if shutil.which("pandoc") is None:
         raise RuntimeError(
@@ -54,7 +55,7 @@ def convert_markdown_to_docx(
             "-o",
             str(output_docx),
             "--from=markdown+pipe_tables+grid_tables+multiline_tables",
-            "--resource-path=.",
+            f"--resource-path={resource_path}",
             "--standalone",
         ]
 
@@ -86,6 +87,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional reference .docx for custom Word styles",
     )
+    parser.add_argument(
+        "--resource-path",
+        default=".",
+        help="Pandoc resource search path (default: .)",
+    )
     return parser.parse_args()
 
 
@@ -99,7 +105,7 @@ def main() -> int:
         output_docx = args.output
 
     try:
-        convert_markdown_to_docx(input_md, output_docx, args.reference_doc)
+        convert_markdown_to_docx(input_md, output_docx, args.reference_doc, args.resource_path)
     except Exception as e:  # noqa: BLE001 - beginner-friendly CLI output
         print(f"[ERROR] {e}")
         return 1
