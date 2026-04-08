@@ -4,6 +4,9 @@ config/config.json
 # 数据文件（PDF、图片、JSON、docx等）
 data/
 
+# 临时打包文件
+*.tar.gz
+
 # 临时文件
 *.tmp
 *.tmp.md
