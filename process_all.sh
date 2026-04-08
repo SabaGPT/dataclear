@@ -6,6 +6,13 @@
 
 set -euo pipefail
 
+# 自动检测python命令（Windows上python3可能是Store stub）
+if python3 -c "pass" 2>/dev/null; then
+    PYTHON=python3
+else
+    PYTHON=python
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA_DIR="$SCRIPT_DIR/data/documents"
 
@@ -40,11 +47,11 @@ for doc_dir in "$DATA_DIR"/*/; do
     echo "  源文件: $(basename "$src")"
 
     # Step 1: fix_mineru_md.py 预处理 → output/fixed.md
-    python3 "$SCRIPT_DIR/scripts/fix_mineru_md.py" "$src" -o "$doc_dir/output/fixed.md"
+    $PYTHON "$SCRIPT_DIR/scripts/fix_mineru_md.py" "$src" -o "$doc_dir/output/fixed.md"
 
     # Step 2: md_to_docx_pandoc.py 转docx → output/clean.docx
     # 必须 cd 到文档目录，让 pandoc --resource-path=. 找到 mineru_output/images/
-    if (cd "$doc_dir" && python3 "$SCRIPT_DIR/scripts/md_to_docx_pandoc.py" output/fixed.md -o output/clean.docx --resource-path=mineru_output); then
+    if (cd "$doc_dir" && $PYTHON "$SCRIPT_DIR/scripts/md_to_docx_pandoc.py" output/fixed.md -o output/clean.docx --resource-path=mineru_output); then
         echo "  [OK] → output/clean.docx"
         ok=$((ok + 1))
     else

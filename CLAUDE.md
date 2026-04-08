@@ -20,24 +20,26 @@ MinerU v0.13.1 (VLM model + doclayout_yolo) extracted PDF into markdown, images,
 ### Step 2: 预处理
 ```bash
 cd data/documents/<文档名>
-python ../../../scripts/fix_mineru_md.py mineru_output/MinerU_markdown_*.md -o output/fixed.md
+python ../../../scripts/fix_mineru_md.py mineru_output/full.md -o output/fixed.md
 ```
 Converts HTML `<table>` tags (which pandoc's markdown reader ignores) into Markdown pipe tables. Handles `rowspan`/`colspan`. Script uses only stdlib (`re`, `pathlib`).
 
 ### Step 3: pandoc转docx
 ```bash
-python ../../../scripts/md_to_docx_pandoc.py output/fixed.md -o output/clean.docx
+python ../../../scripts/md_to_docx_pandoc.py output/fixed.md -o output/clean.docx --resource-path=mineru_output
 ```
 Requires `pandoc`. Normalizes ATX headings then calls pandoc with `pipe_tables+grid_tables+multiline_tables`.
 
-注意：需在文档数据目录下运行，pandoc 的 `--resource-path=.` 会在当前目录查找图片，确保 markdown 中的 `mineru_output/images/xxx.jpg` 路径能正确解析。
+注意：需在文档数据目录下运行，pandoc 的 `--resource-path` 指向 `mineru_output` 以找到 `images/` 子目录。
 
 ### 一键批处理
 ```bash
 bash process_all.sh            # 处理所有文档
 bash process_all.sh "GB+35181-2025"  # 只处理指定文档
 ```
-自动查找每个文档的 MinerU 源 markdown，依次运行 fix_mineru_md.py 和 md_to_docx_pandoc.py。无源 markdown 的文档自动跳过。
+自动查找每个文档的 MinerU 源 markdown（优先级：MinerU_markdown_*.md > full.md > 任意.md），依次运行 fix_mineru_md.py 和 md_to_docx_pandoc.py。无源 markdown 的文档自动跳过。
+
+**Windows注意**：`python3` 可能是 Windows Store stub（exit code 49）。`process_all.sh` 会自动检测并回退到 `python`。手动运行脚本时也应使用 `python` 而非 `python3`。
 
 ## Directory Structure
 
@@ -70,7 +72,7 @@ dataclear/
 
 | 目录名 | 说明 |
 |--------|------|
-| `DB32／T+5183-2025+地下民用建筑防火设计标准` | 江苏省地方标准 |
+| `DB32` | 江苏省地方标准 DB32/T 5183-2025 |
 | `建筑防火通用规范 GB 55037-2022实施指南(1-01）` | GB 55037-2022 Part 1-01 |
 | `建筑防火通用规范 GB 55037-2022实施指南(1-02)` | GB 55037-2022 Part 1-02 |
 | `建筑防火通用规范 GB 55037-2022实施指南(1-03)` | GB 55037-2022 Part 1-03 |
@@ -90,8 +92,8 @@ dataclear/
 | Tool | Install | Purpose |
 |------|---------|---------|
 | MinerU | `pip install -U "mineru[all]"` | PDF解析 (already done) |
-| pandoc | `apt install pandoc` | Markdown→docx |
-| Python 3.8+ | System | Scripts use only stdlib |
+| pandoc | `winget install --id JohnMacFarlane.Pandoc -e` | Markdown→docx |
+| Python 3.8+ | System (`python` on Windows, not `python3`) | Scripts use only stdlib |
 
 ## MinerU Config
 
