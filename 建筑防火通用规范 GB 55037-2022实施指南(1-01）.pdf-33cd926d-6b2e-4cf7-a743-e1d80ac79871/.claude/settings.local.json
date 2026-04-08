@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python fix_mineru_md.py \"建筑防火通用规范 GB 55037-2022实施指南\\(1-01）.md\" -o fixed.md)",
+      "Bash(python md_to_docx_pandoc.py fixed.md -o clean.docx)",
+      "Bash(mkdir:*)",
+      "Bash(mv fix_mineru_md.py scripts/)",
+      "Bash(mv md_to_docx_pandoc.py scripts/)",
+      "Bash(mv:*)",
+      "Bash(mv 8d965c25-e1b0-4c73-88ad-d3667f2da358_content_list.json mineru_output/)",
+      "Bash(mv 8d965c25-e1b0-4c73-88ad-d3667f2da358_model.json mineru_output/)",
+      "Bash(mv block_list.json mineru_output/)",
+      "Bash(mv content_list_v2.json mineru_output/)",
+      "Bash(mv layout.json mineru_output/)",
+      "Bash(mv clean.docx output/)",
+      "Bash(mv \"建筑防火通用规范 GB 55037-2022实施指南\\(1-01）.docx\" output/)",
+      "Bash(cp \"D:\\\\Akira\\\\project\\\\MinerU\\\\建筑防火通用规范 GB 55037-2022实施指南\\(1-01）.pdf-33cd926d-6b2e-4cf7-a743-e1d80ac79871/scripts/fix_mineru_md.py\" \"D:\\\\Akira\\\\project\\\\MinerU\\\\建筑防火通用规范 GB 55037-2022实施指南\\(1-02\\).pdf-eabd5297-4663-49e2-b2aa-e5c52182e5e7/scripts/\")",
+      "Bash(cp \"D:\\\\Akira\\\\project\\\\MinerU\\\\建筑防火通用规范 GB 55037-2022实施指南\\(1-01）.pdf-33cd926d-6b2e-4cf7-a743-e1d80ac79871/scripts/md_to_docx_pandoc.py\" \"D:\\\\Akira\\\\project\\\\MinerU\\\\建筑防火通用规范 GB 55037-2022实施指南\\(1-02\\).pdf-eabd5297-4663-49e2-b2aa-e5c52182e5e7/scripts/\")",
+      "Bash(python scripts/fix_mineru_md.py full.md -o fixed.md)",
+      "Bash(python scripts/md_to_docx_pandoc.py fixed.md -o output/clean.docx)",
+      "Bash(mv cd04e4d8-335f-419f-899e-23343cbdaa96_origin.pdf source/)",
+      "Bash(mv cd04e4d8-335f-419f-899e-23343cbdaa96_content_list.json mineru_output/)",
+      "Bash(mv cd04e4d8-335f-419f-899e-23343cbdaa96_model.json mineru_output/)",
+      "Bash(mv MinerU_markdown_202604071159968_ffacadb2.md mineru_output/)",
+      "Bash(mv images/ mineru_output/)",
+      "Bash(ls:*)",
+      "Bash(cp 'D:/Akira/project/MinerU/建筑防火通用规范 GB 55037-2022实施指南\\(1-01）.pdf-33cd926d-6b2e-4cf7-a743-e1d80ac79871/scripts/fix_mineru_md.py' 'D:/Akira/project/MinerU/建筑防火通用规范 GB 55037-2022实施指南\\(1-03\\).pdf-b1699e6b-58c1-4d20-8964-de44498fefb5/scripts/')",
+      "Bash(cp 'D:/Akira/project/MinerU/建筑防火通用规范 GB 55037-2022实施指南\\(1-01）.pdf-33cd926d-6b2e-4cf7-a743-e1d80ac79871/scripts/md_to_docx_pandoc.py' 'D:/Akira/project/MinerU/建筑防火通用规范 GB 55037-2022实施指南\\(1-03\\).pdf-b1699e6b-58c1-4d20-8964-de44498fefb5/scripts/')",
+      "Bash(mv 'D:/Akira/project/MinerU/建筑防火通用规范 GB 55037-2022实施指南\\(1-03\\).pdf-b1699e6b-58c1-4d20-8964-de44498fefb5/6313d5e1-70c8-4bbc-8c46-d87d55afd4f4_origin.pdf' 'D:/Akira/project/MinerU/建筑防火通用规范 GB 55037-2022实施指南\\(1-03\\).pdf-b1699e6b-58c1-4d20-8964-de44498fefb5/source/')",
+      "Bash(echo \"PDF moved: $?\")",
+      "Bash(mv 'D:/Akira/project/MinerU/建筑防火通用规范 GB 55037-2022实施指南\\(1-03\\).pdf-b1699e6b-58c1-4d20-8964-de44498fefb5/images' 'D:/Akira/project/MinerU/建筑防火通用规范 GB 55037-2022实施指南\\(1-03\\).pdf-b1699e6b-58c1-4d20-8964-de44498fefb5/mineru_output/')",
+      "Bash(python scripts/fix_mineru_md.py \"建筑防火通用规范 GB 55037-2022实施指南\\(1-03\\).md\" -o fixed.md)"
+    ]
+  }
+}
