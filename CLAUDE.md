@@ -32,10 +32,12 @@ Requires `pandoc`. Normalizes ATX headings then calls pandoc with `pipe_tables+g
 
 注意：需在文档数据目录下运行，pandoc 的 `--resource-path=.` 会在当前目录查找图片，确保 markdown 中的 `mineru_output/images/xxx.jpg` 路径能正确解析。
 
-### Batch processing
+### 一键批处理
 ```bash
-python scripts/fix_mineru_md.py ./dir/ --batch -o ./fixed/
+bash process_all.sh            # 处理所有文档
+bash process_all.sh "GB+35181-2025"  # 只处理指定文档
 ```
+自动查找每个文档的 MinerU 源 markdown，依次运行 fix_mineru_md.py 和 md_to_docx_pandoc.py。无源 markdown 的文档自动跳过。
 
 ## Directory Structure
 
