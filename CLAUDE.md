@@ -54,10 +54,15 @@ bash process_all.sh "GB+35181-2025"  # 只处理指定文档
 dataclear/
 ├── CLAUDE.md                   # 项目指引
 ├── .gitignore                  # 排除数据文件和敏感配置
-├── scripts/                    # 应用代码（唯一副本）
+├── .claude/skills/             # Claude Code Skills
+│   └── md-to-pptx/            #   Markdown→PPTX skill（独立产品）
+│       ├── SKILL.md            #     Skill 定义和工作流
+│       ├── scripts/md_to_pptx.py #  转换引擎
+│       └── references/         #     设计规范和内容规则
+├── scripts/                    # 应用代码
 │   ├── fix_mineru_md.py        #   HTML表格→Markdown表格预处理
 │   ├── md_to_docx_pandoc.py    #   Markdown→docx转换
-│   └── md_to_pptx.py           #   Markdown→pptx转换
+│   └── md_to_pptx.py           #   → skill 入口（委托给 .claude/skills/）
 ├── docs/                       # 项目文档
 │   └── technical-spec.md       #   技术规格文档
 ├── config/                     # MinerU配置（gitignore排除）
