@@ -65,10 +65,12 @@ MAX_TABLE_ROWS = 10
 
 @dataclass
 class ContentBlock:
-    kind: str  # "paragraph", "table", "image", "list"
+    kind: str  # "paragraph", "table", "image", "image_group", "list"
     text: str = ""
     table_data: list[list[str]] = field(default_factory=list)
     image_path: str = ""
+    image_paths: list[str] = field(default_factory=list)
+    image_layout: str = "horizontal"  # "horizontal", "vertical"
 
 
 @dataclass
@@ -86,6 +88,8 @@ class SlideData:
     body_text: str = ""
     table_data: list[list[str]] = field(default_factory=list)
     image_path: str = ""
+    image_paths: list[str] = field(default_factory=list)
+    image_layout: str = "horizontal"  # "horizontal", "vertical"
 
 
 # ── Markdown parsing ───────────────────────────────────────────────
@@ -95,8 +99,26 @@ def normalize_headings(md_text: str) -> str:
     return pattern.sub(r"\1 \2", md_text)
 
 
+def _is_image_line(line: str) -> re.Match | None:
+    """Match image lines: ![alt](path) or ![图N] shorthand."""
+    return (re.match(r"^!\[([^\]]*)\]\(([^)]+)\)", line) or
+            re.match(r"^!\[([^\]]+)\]\s*$", line))
+
+
+def _is_hr_line(line: str) -> bool:
+    """Match horizontal rule: --- (used as vertical layout separator)."""
+    return bool(re.match(r"^-{3,}\s*$", line.strip()))
+
+
 def parse_markdown(md_text: str) -> list[Section]:
-    """Parse markdown into a list of Section objects."""
+    """Parse markdown into a list of Section objects.
+
+    Image handling:
+      - ![alt](path)  — standard markdown image with file path
+      - ![图1]         — shorthand, resolved to numbered file in resource-path
+      - Consecutive image lines → grouped into one image_group block
+      - --- between images → vertical layout (default: horizontal)
+    """
     md_text = normalize_headings(md_text)
     lines = md_text.split("\n")
     sections: list[Section] = []
@@ -104,7 +126,6 @@ def parse_markdown(md_text: str) -> list[Section]:
     heading_re = re.compile(r"^(#{1,6})\s+(.+)$")
     table_re = re.compile(r"^\|.+\|$")
     separator_re = re.compile(r"^\|[\s\-:|]+\|$")
-    image_re = re.compile(r"^!\[([^\]]*)\]\(([^)]+)\)")
     list_re = re.compile(r"^(\s*)([-*]|\d+\.)\s+(.+)$")
 
     i = 0
@@ -138,11 +159,34 @@ def parse_markdown(md_text: str) -> list[Section]:
                 current.blocks.append(ContentBlock(kind="table", table_data=table_lines))
             continue
 
-        # Image
-        m = image_re.match(line)
-        if m:
-            current.blocks.append(ContentBlock(kind="image", image_path=m.group(2)))
-            i += 1
+        # Image or image group
+        img_m = _is_image_line(line)
+        if img_m:
+            image_refs: list[str] = []
+            layout = "horizontal"
+
+            # Collect consecutive image lines (with optional --- separators)
+            while i < len(lines):
+                im = _is_image_line(lines[i])
+                if im:
+                    # Extract path: group(2) for ![alt](path), group(1) for ![图N]
+                    path = im.group(2) if im.lastindex and im.lastindex >= 2 else im.group(1)
+                    image_refs.append(path)
+                    i += 1
+                elif _is_hr_line(lines[i]):
+                    layout = "vertical"
+                    i += 1
+                else:
+                    break
+
+            if len(image_refs) == 1:
+                current.blocks.append(ContentBlock(
+                    kind="image", image_path=image_refs[0]))
+            else:
+                current.blocks.append(ContentBlock(
+                    kind="image_group",
+                    image_paths=image_refs,
+                    image_layout=layout))
             continue
 
         # List items — accumulate consecutive list lines
@@ -160,7 +204,7 @@ def parse_markdown(md_text: str) -> list[Section]:
         if line.strip():
             para_lines = []
             while i < len(lines) and lines[i].strip() and not heading_re.match(lines[i]) \
-                    and not table_re.match(lines[i]) and not image_re.match(lines[i]) \
+                    and not table_re.match(lines[i]) and not _is_image_line(lines[i]) \
                     and not list_re.match(lines[i]):
                 para_lines.append(lines[i].strip())
                 i += 1
@@ -274,6 +318,12 @@ def _block_to_slides(block: ContentBlock, title: str) -> list[SlideData]:
 
     elif block.kind == "image":
         result.append(SlideData(layout="image", title=title, image_path=block.image_path))
+
+    elif block.kind == "image_group":
+        result.append(SlideData(
+            layout="image", title=title,
+            image_paths=block.image_paths,
+            image_layout=block.image_layout))
 
     elif block.kind in ("paragraph", "list"):
         text = block.text
@@ -498,58 +548,173 @@ def _add_table_slide(prs, slide_data: SlideData):
             cell.vertical_anchor = MSO_ANCHOR.MIDDLE
 
 
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff")
+IMAGE_GAP = Inches(0.15)
+
+
+def _resolve_image(ref: str, resource_path: str) -> Path | None:
+    """Resolve an image reference to a file path.
+
+    Supports:
+      - Direct path: "images/firewall.png"
+      - Shorthand:   "图1" → searches for 01.*, 1.*, 图1.* in resource_path
+    """
+    # Try direct path first
+    for base in (Path(resource_path), Path(".")):
+        candidate = base / ref
+        if candidate.exists():
+            return candidate
+
+    # Shorthand: extract number from "图N" or "图N-M" or just "N"
+    num_match = re.search(r"(\d[\d\-]*)", ref)
+    if not num_match:
+        return None
+
+    num_str = num_match.group(1)  # e.g. "1", "3-2"
+    rp = Path(resource_path)
+
+    # Search patterns: 01.png, 1.png, 图1.png, etc.
+    candidates = [
+        num_str.zfill(2),           # "01"
+        num_str,                     # "1"
+        f"图{num_str}",             # "图1"
+        f"fig{num_str}",            # "fig1"
+        f"figure{num_str}",         # "figure1"
+    ]
+
+    if rp.is_dir():
+        for f in rp.iterdir():
+            if not f.is_file():
+                continue
+            stem = f.stem.lower()
+            for c in candidates:
+                if stem == c.lower() and f.suffix.lower() in IMAGE_EXTENSIONS:
+                    return f
+
+    return None
+
+
+def _place_single_image(slide, img_path: Path, left, top, available_w, available_h):
+    """Place one image within the given rectangle, centered and aspect-preserved."""
+    from PIL import Image as PILImage
+    with PILImage.open(img_path) as img:
+        img_w, img_h = img.size
+
+    scale = min(available_w / img_w, available_h / img_h)
+    display_w = int(img_w * scale)
+    display_h = int(img_h * scale)
+
+    cx = left + (available_w - display_w) // 2
+    cy = top + (available_h - display_h) // 2
+
+    slide.shapes.add_picture(str(img_path), left=cx, top=cy,
+                             width=display_w, height=display_h)
+
+
 def _add_image_slide(prs, slide_data: SlideData, resource_path: str):
-    """Generate image slide with title bar and centered image."""
+    """Generate image slide with title bar and one or more images."""
     slide_layout = prs.slide_layouts[6]  # blank
     slide = prs.slides.add_slide(slide_layout)
-
     _add_title_bar(slide, prs, slide_data.title)
 
-    # Resolve image path
-    img_path = Path(resource_path) / slide_data.image_path
-    if not img_path.exists():
-        # Try relative to current dir
-        img_path = Path(slide_data.image_path)
+    # Collect image paths to render
+    refs: list[str] = []
+    if slide_data.image_paths:
+        refs = slide_data.image_paths
+    elif slide_data.image_path:
+        refs = [slide_data.image_path]
 
-    if not img_path.exists():
-        # Add a text placeholder for missing image
+    resolved: list[Path | None] = [_resolve_image(r, resource_path) for r in refs]
+
+    # Filter to found images, track missing
+    missing = [refs[i] for i, p in enumerate(resolved) if p is None]
+    found = [(refs[i], p) for i, p in enumerate(resolved) if p is not None]
+
+    if not found:
+        # All missing — show placeholder
         txBox = slide.shapes.add_textbox(
             left=MARGIN_LEFT, top=BODY_TOP,
-            width=BODY_WIDTH, height=BODY_HEIGHT,
-        )
+            width=BODY_WIDTH, height=BODY_HEIGHT)
         tf = txBox.text_frame
         p = tf.paragraphs[0]
         p.alignment = PP_ALIGN.CENTER
         run = p.add_run()
-        run.text = f"[图片未找到: {slide_data.image_path}]"
+        run.text = f"[图片未找到: {', '.join(refs)}]"
         _set_font(run, size=FONT_SIZE_BODY, color=COLOR_ACCENT)
         return
 
-    # Calculate image size to fit in body area, maintaining aspect ratio
-    from PIL import Image
-    with Image.open(img_path) as img:
-        img_w, img_h = img.size
+    n = len(found)
+    layout = slide_data.image_layout
+    avail_w = BODY_WIDTH
+    avail_h = BODY_HEIGHT
 
-    available_w = BODY_WIDTH
-    available_h = BODY_HEIGHT
+    if n == 1:
+        _place_single_image(slide, found[0][1], MARGIN_LEFT, BODY_TOP, avail_w, avail_h)
 
-    # Scale to fit
-    scale_w = available_w / img_w
-    scale_h = available_h / img_h
-    scale = min(scale_w, scale_h)
+    elif n == 2:
+        if layout == "vertical":
+            # Top-bottom
+            cell_h = (avail_h - IMAGE_GAP) // 2
+            _place_single_image(slide, found[0][1],
+                                MARGIN_LEFT, BODY_TOP, avail_w, cell_h)
+            _place_single_image(slide, found[1][1],
+                                MARGIN_LEFT, BODY_TOP + cell_h + IMAGE_GAP, avail_w, cell_h)
+        else:
+            # Left-right
+            cell_w = (avail_w - IMAGE_GAP) // 2
+            _place_single_image(slide, found[0][1],
+                                MARGIN_LEFT, BODY_TOP, cell_w, avail_h)
+            _place_single_image(slide, found[1][1],
+                                MARGIN_LEFT + cell_w + IMAGE_GAP, BODY_TOP, cell_w, avail_h)
 
-    display_w = int(img_w * scale)
-    display_h = int(img_h * scale)
+    elif n == 3:
+        if layout == "vertical":
+            # Left 1, right 2 (stacked)
+            left_w = avail_w // 2 - IMAGE_GAP // 2
+            right_w = avail_w - left_w - IMAGE_GAP
+            cell_h = (avail_h - IMAGE_GAP) // 2
+            _place_single_image(slide, found[0][1],
+                                MARGIN_LEFT, BODY_TOP, left_w, avail_h)
+            _place_single_image(slide, found[1][1],
+                                MARGIN_LEFT + left_w + IMAGE_GAP, BODY_TOP, right_w, cell_h)
+            _place_single_image(slide, found[2][1],
+                                MARGIN_LEFT + left_w + IMAGE_GAP,
+                                BODY_TOP + cell_h + IMAGE_GAP, right_w, cell_h)
+        else:
+            # Top 1, bottom 2
+            top_h = avail_h // 2 - IMAGE_GAP // 2
+            bot_h = avail_h - top_h - IMAGE_GAP
+            cell_w = (avail_w - IMAGE_GAP) // 2
+            _place_single_image(slide, found[0][1],
+                                MARGIN_LEFT, BODY_TOP, avail_w, top_h)
+            _place_single_image(slide, found[1][1],
+                                MARGIN_LEFT, BODY_TOP + top_h + IMAGE_GAP, cell_w, bot_h)
+            _place_single_image(slide, found[2][1],
+                                MARGIN_LEFT + cell_w + IMAGE_GAP,
+                                BODY_TOP + top_h + IMAGE_GAP, cell_w, bot_h)
 
-    # Center in body area
-    left = MARGIN_LEFT + (available_w - display_w) // 2
-    top = BODY_TOP + (available_h - display_h) // 2
+    else:  # 4+: 2×N grid
+        cols = 2
+        rows = (n + 1) // 2
+        cell_w = (avail_w - IMAGE_GAP * (cols - 1)) // cols
+        cell_h = (avail_h - IMAGE_GAP * (rows - 1)) // rows
+        for idx, (ref, path) in enumerate(found):
+            r, c = divmod(idx, cols)
+            x = MARGIN_LEFT + c * (cell_w + IMAGE_GAP)
+            y = BODY_TOP + r * (cell_h + IMAGE_GAP)
+            _place_single_image(slide, path, x, y, cell_w, cell_h)
 
-    slide.shapes.add_picture(
-        str(img_path),
-        left=left, top=top,
-        width=display_w, height=display_h,
-    )
+    # Show missing image refs as small note
+    if missing:
+        txBox = slide.shapes.add_textbox(
+            left=MARGIN_LEFT, top=SLIDE_HEIGHT - MARGIN_BOTTOM - Inches(0.3),
+            width=BODY_WIDTH, height=Inches(0.3))
+        tf = txBox.text_frame
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.RIGHT
+        run = p.add_run()
+        run.text = f"[未找到: {', '.join(missing)}]"
+        _set_font(run, size=Pt(10), color=COLOR_ACCENT)
 
 
 def create_pptx(slides: list[SlideData], output_path: Path, resource_path: str = ".") -> None:
