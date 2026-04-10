@@ -55,13 +55,17 @@ dataclear/
 ├── CLAUDE.md                   # 项目指引
 ├── .gitignore                  # 排除数据文件和敏感配置
 ├── .claude/skills/             # Claude Code Skills
-│   └── md-to-pptx/            #   Markdown→PPTX skill（独立产品）
+│   ├── md-to-pptx/            #   Markdown→PPTX skill（独立产品）
+│   │   ├── SKILL.md            #     Skill 定义和工作流
+│   │   ├── scripts/md_to_pptx.py #  转换引擎（6种风格模板）
+│   │   ├── scripts/extract_style.py # 品牌PPT逆向工程
+│   │   └── references/         #     设计规范和内容规则
+│   └── md-to-docx/            #   Markdown→DOCX skill（独立产品）
 │       ├── SKILL.md            #     Skill 定义和工作流
-│       ├── scripts/md_to_pptx.py #  转换引擎
-│       └── references/         #     设计规范和内容规则
-├── scripts/                    # 应用代码
+│       └── scripts/md_to_docx_pandoc.py # 转换引擎（pandoc）
+├── scripts/                    # 应用代码（薄委托层）
 │   ├── fix_mineru_md.py        #   HTML表格→Markdown表格预处理
-│   ├── md_to_docx_pandoc.py    #   Markdown→docx转换
+│   ├── md_to_docx_pandoc.py    #   → skill 入口（委托给 .claude/skills/）
 │   └── md_to_pptx.py           #   → skill 入口（委托给 .claude/skills/）
 ├── docs/                       # 项目文档
 │   └── technical-spec.md       #   技术规格文档

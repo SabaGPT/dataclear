@@ -23,25 +23,105 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 
-# ── Style constants (baoyu corporate) ──────────────────────────────
+# ── Style system ──────────────────────────────────────────────────
 
-COLOR_TITLE_BG = RGBColor(0x1E, 0x3A, 0x5F)     # 深蓝 navy
-COLOR_ACCENT = RGBColor(0x2B, 0x6C, 0xB0)         # 蓝色强调
-COLOR_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-COLOR_DARK = RGBColor(0x2D, 0x2D, 0x2D)           # 正文深灰
-COLOR_LIGHT_BG = RGBColor(0xF3, 0xF4, 0xF6)       # 浅灰背景
-COLOR_TABLE_HEADER = RGBColor(0x1E, 0x3A, 0x5F)   # 表头背景
-COLOR_TABLE_ALT = RGBColor(0xEB, 0xEF, 0xF5)      # 表格交替行
+@dataclass
+class StyleConfig:
+    """Complete visual style definition for PPTX generation."""
+    name: str
+    title_bg: tuple  # RGB tuple (r, g, b) 0-255
+    accent: tuple
+    text_color: tuple
+    bg_color: tuple
+    light_bg: tuple
+    table_header: tuple
+    table_alt: tuple
+    font_title: str = "Microsoft YaHei"
+    font_body: str = "Microsoft YaHei"
 
-FONT_TITLE = "Microsoft YaHei"
-FONT_BODY = "Microsoft YaHei"
-FONT_SIZE_COVER_TITLE = Pt(36)
-FONT_SIZE_COVER_SUBTITLE = Pt(18)
-FONT_SIZE_SECTION_TITLE = Pt(32)
-FONT_SIZE_SLIDE_TITLE = Pt(24)
-FONT_SIZE_BODY = Pt(16)
-FONT_SIZE_TABLE = Pt(12)
-FONT_SIZE_TABLE_HEADER = Pt(13)
+    def rgb(self, attr: str) -> RGBColor:
+        t = getattr(self, attr)
+        return RGBColor(t[0], t[1], t[2])
+
+
+def _hex(h: str) -> tuple:
+    """Convert '#RRGGBB' to (r, g, b) tuple."""
+    h = h.lstrip("#")
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
+STYLES: dict[str, StyleConfig] = {
+    "corporate": StyleConfig(
+        name="corporate",
+        title_bg=_hex("#1E3A5F"), accent=_hex("#2B6CB0"),
+        text_color=_hex("#2D2D2D"), bg_color=_hex("#FFFFFF"),
+        light_bg=_hex("#F3F4F6"),
+        table_header=_hex("#1E3A5F"), table_alt=_hex("#EBEFF5"),
+    ),
+    "government": StyleConfig(
+        name="government",
+        title_bg=_hex("#003366"), accent=_hex("#CC0000"),
+        text_color=_hex("#333333"), bg_color=_hex("#F5F5F5"),
+        light_bg=_hex("#E8E8E8"),
+        table_header=_hex("#003366"), table_alt=_hex("#E6EBF0"),
+        font_title="SimHei", font_body="SimSun",
+    ),
+    "education": StyleConfig(
+        name="education",
+        title_bg=_hex("#2E5090"), accent=_hex("#2FBF71"),
+        text_color=_hex("#2C3E50"), bg_color=_hex("#FAFBFC"),
+        light_bg=_hex("#EEF2F7"),
+        table_header=_hex("#2E5090"), table_alt=_hex("#E8F5E9"),
+    ),
+    "minimal": StyleConfig(
+        name="minimal",
+        title_bg=_hex("#555555"), accent=_hex("#0099FF"),
+        text_color=_hex("#222222"), bg_color=_hex("#FFFFFF"),
+        light_bg=_hex("#F0F0F0"),
+        table_header=_hex("#555555"), table_alt=_hex("#F5F5F5"),
+    ),
+    "technical": StyleConfig(
+        name="technical",
+        title_bg=_hex("#1A1A1A"), accent=_hex("#0066CC"),
+        text_color=_hex("#333333"), bg_color=_hex("#F0F0F0"),
+        light_bg=_hex("#E0E0E0"),
+        table_header=_hex("#1A1A1A"), table_alt=_hex("#E8E8E8"),
+    ),
+    "warm": StyleConfig(
+        name="warm",
+        title_bg=_hex("#B8764F"), accent=_hex("#E67E22"),
+        text_color=_hex("#3D3D3D"), bg_color=_hex("#FFFAF5"),
+        light_bg=_hex("#F4E4D7"),
+        table_header=_hex("#B8764F"), table_alt=_hex("#FFF0E6"),
+    ),
+}
+
+DEFAULT_STYLE = "corporate"
+
+
+def load_style(name: str = DEFAULT_STYLE, style_file: str | None = None) -> StyleConfig:
+    """Load a style by preset name or from a JSON file."""
+    if style_file:
+        import json
+        data = json.loads(Path(style_file).read_text(encoding="utf-8"))
+        return StyleConfig(
+            name=data.get("name", "custom"),
+            title_bg=_hex(data["title_bg"]), accent=_hex(data["accent"]),
+            text_color=_hex(data.get("text_color", "#2D2D2D")),
+            bg_color=_hex(data.get("bg_color", "#FFFFFF")),
+            light_bg=_hex(data.get("light_bg", "#F3F4F6")),
+            table_header=_hex(data.get("table_header", data["title_bg"])),
+            table_alt=_hex(data.get("table_alt", "#EBEFF5")),
+            font_title=data.get("font_title", "Microsoft YaHei"),
+            font_body=data.get("font_body", "Microsoft YaHei"),
+        )
+    if name not in STYLES:
+        print(f"[WARN] 未知风格 '{name}'，使用 {DEFAULT_STYLE}")
+        name = DEFAULT_STYLE
+    return STYLES[name]
+
+
+# ── Layout constants (shared across styles) ───────────────────────
 
 SLIDE_WIDTH = Inches(13.333)
 SLIDE_HEIGHT = Inches(7.5)
@@ -55,6 +135,14 @@ TITLE_BAR_HEIGHT = Inches(1.0)
 BODY_TOP = MARGIN_TOP + TITLE_BAR_HEIGHT + Inches(0.2)
 BODY_WIDTH = SLIDE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
 BODY_HEIGHT = SLIDE_HEIGHT - BODY_TOP - MARGIN_BOTTOM
+
+FONT_SIZE_COVER_TITLE = Pt(36)
+FONT_SIZE_COVER_SUBTITLE = Pt(18)
+FONT_SIZE_SECTION_TITLE = Pt(32)
+FONT_SIZE_SLIDE_TITLE = Pt(24)
+FONT_SIZE_BODY = Pt(16)
+FONT_SIZE_TABLE = Pt(12)
+FONT_SIZE_TABLE_HEADER = Pt(13)
 
 MAX_BODY_LINES = 12
 MAX_BODY_CHARS = 400
@@ -337,15 +425,15 @@ def _block_to_slides(block: ContentBlock, title: str) -> list[SlideData]:
 
 # ── PPTX generation ────────────────────────────────────────────────
 
-def _set_font(run, name=FONT_BODY, size=FONT_SIZE_BODY, bold=False, color=COLOR_DARK):
+def _set_font(run, style: StyleConfig, size=None, bold=False, color_attr="text_color", color_override=None):
     """Apply font settings to a text run."""
-    run.font.name = name
-    run.font.size = size
+    run.font.name = style.font_body
+    run.font.size = size or FONT_SIZE_BODY
     run.font.bold = bold
-    run.font.color.rgb = color
+    run.font.color.rgb = color_override or style.rgb(color_attr)
 
 
-def _add_title_bar(slide, prs, title: str):
+def _add_title_bar(slide, prs, title: str, style: StyleConfig):
     """Add a colored title bar at the top of a slide."""
     bar = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
@@ -354,7 +442,7 @@ def _add_title_bar(slide, prs, title: str):
         height=TITLE_BAR_HEIGHT,
     )
     bar.fill.solid()
-    bar.fill.fore_color.rgb = COLOR_TITLE_BG
+    bar.fill.fore_color.rgb = style.rgb("title_bg")
     bar.line.fill.background()
 
     txBox = slide.shapes.add_textbox(
@@ -369,137 +457,112 @@ def _add_title_bar(slide, prs, title: str):
     p.alignment = PP_ALIGN.LEFT
     run = p.add_run()
     run.text = title
-    _set_font(run, size=FONT_SIZE_SLIDE_TITLE, bold=True, color=COLOR_WHITE)
+    run.font.name = style.font_title
+    run.font.size = FONT_SIZE_SLIDE_TITLE
+    run.font.bold = True
+    run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
 
-def _add_cover_slide(prs, slide_data: SlideData):
+def _add_cover_slide(prs, slide_data: SlideData, style: StyleConfig):
     """Generate cover slide with centered title."""
     slide_layout = prs.slide_layouts[6]  # blank
     slide = prs.slides.add_slide(slide_layout)
 
-    # Full-slide background color
     bg = slide.shapes.add_shape(
-        MSO_SHAPE.RECTANGLE,
-        left=0, top=0,
-        width=prs.slide_width,
-        height=prs.slide_height,
-    )
+        MSO_SHAPE.RECTANGLE, left=0, top=0,
+        width=prs.slide_width, height=prs.slide_height)
     bg.fill.solid()
-    bg.fill.fore_color.rgb = COLOR_TITLE_BG
+    bg.fill.fore_color.rgb = style.rgb("title_bg")
     bg.line.fill.background()
 
-    # Accent line
     line = slide.shapes.add_shape(
-        MSO_SHAPE.RECTANGLE,
-        left=Inches(4.0),
-        top=Inches(3.4),
-        width=Inches(5.333),
-        height=Inches(0.06),
-    )
+        MSO_SHAPE.RECTANGLE, left=Inches(4.0), top=Inches(3.4),
+        width=Inches(5.333), height=Inches(0.06))
     line.fill.solid()
-    line.fill.fore_color.rgb = COLOR_ACCENT
+    line.fill.fore_color.rgb = style.rgb("accent")
     line.line.fill.background()
 
-    # Title
     txBox = slide.shapes.add_textbox(
-        left=Inches(1.5),
-        top=Inches(1.8),
-        width=Inches(10.333),
-        height=Inches(1.5),
-    )
+        left=Inches(1.5), top=Inches(1.8),
+        width=Inches(10.333), height=Inches(1.5))
     tf = txBox.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
     p.alignment = PP_ALIGN.CENTER
     run = p.add_run()
     run.text = slide_data.title
-    _set_font(run, size=FONT_SIZE_COVER_TITLE, bold=True, color=COLOR_WHITE)
+    run.font.name = style.font_title
+    run.font.size = FONT_SIZE_COVER_TITLE
+    run.font.bold = True
+    run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
-    # Subtitle
     if slide_data.subtitle:
         txBox2 = slide.shapes.add_textbox(
-            left=Inches(2.0),
-            top=Inches(3.8),
-            width=Inches(9.333),
-            height=Inches(1.0),
-        )
+            left=Inches(2.0), top=Inches(3.8),
+            width=Inches(9.333), height=Inches(1.0))
         tf2 = txBox2.text_frame
         tf2.word_wrap = True
         p2 = tf2.paragraphs[0]
         p2.alignment = PP_ALIGN.CENTER
         run2 = p2.add_run()
         run2.text = slide_data.subtitle
-        _set_font(run2, size=FONT_SIZE_COVER_SUBTITLE, color=COLOR_LIGHT_BG)
+        _set_font(run2, style, size=FONT_SIZE_COVER_SUBTITLE, color_attr="light_bg")
 
 
-def _add_section_slide(prs, slide_data: SlideData):
+def _add_section_slide(prs, slide_data: SlideData, style: StyleConfig):
     """Generate section divider slide."""
     slide_layout = prs.slide_layouts[6]  # blank
     slide = prs.slides.add_slide(slide_layout)
 
-    # Background band (partial height, centered)
     band = slide.shapes.add_shape(
-        MSO_SHAPE.RECTANGLE,
-        left=0,
-        top=Inches(2.2),
-        width=prs.slide_width,
-        height=Inches(3.0),
-    )
+        MSO_SHAPE.RECTANGLE, left=0, top=Inches(2.2),
+        width=prs.slide_width, height=Inches(3.0))
     band.fill.solid()
-    band.fill.fore_color.rgb = COLOR_TITLE_BG
+    band.fill.fore_color.rgb = style.rgb("title_bg")
     band.line.fill.background()
 
-    # Section title
     txBox = slide.shapes.add_textbox(
-        left=Inches(1.5),
-        top=Inches(2.8),
-        width=Inches(10.333),
-        height=Inches(1.5),
-    )
+        left=Inches(1.5), top=Inches(2.8),
+        width=Inches(10.333), height=Inches(1.5))
     tf = txBox.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
     p.alignment = PP_ALIGN.CENTER
     run = p.add_run()
     run.text = slide_data.title
-    _set_font(run, size=FONT_SIZE_SECTION_TITLE, bold=True, color=COLOR_WHITE)
+    run.font.name = style.font_title
+    run.font.size = FONT_SIZE_SECTION_TITLE
+    run.font.bold = True
+    run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
 
-def _add_content_slide(prs, slide_data: SlideData):
+def _add_content_slide(prs, slide_data: SlideData, style: StyleConfig):
     """Generate content slide with title bar and body text."""
     slide_layout = prs.slide_layouts[6]  # blank
     slide = prs.slides.add_slide(slide_layout)
 
-    _add_title_bar(slide, prs, slide_data.title)
+    _add_title_bar(slide, prs, slide_data.title, style)
 
-    # Body text
     txBox = slide.shapes.add_textbox(
-        left=MARGIN_LEFT,
-        top=BODY_TOP,
-        width=BODY_WIDTH,
-        height=BODY_HEIGHT,
-    )
+        left=MARGIN_LEFT, top=BODY_TOP, width=BODY_WIDTH, height=BODY_HEIGHT)
     tf = txBox.text_frame
     tf.word_wrap = True
 
     lines = slide_data.body_text.split("\n")
-    for idx, line in enumerate(lines):
-        if idx == 0:
-            p = tf.paragraphs[0]
-        else:
-            p = tf.add_paragraph()
+    for idx, line_text in enumerate(lines):
+        p = tf.paragraphs[0] if idx == 0 else tf.add_paragraph()
         p.space_after = Pt(6)
         run = p.add_run()
-        run.text = line
-        _set_font(run)
+        run.text = line_text
+        _set_font(run, style)
 
 
-def _add_table_slide(prs, slide_data: SlideData):
+def _add_table_slide(prs, slide_data: SlideData, style: StyleConfig):
     """Generate table slide with title bar and native table."""
     slide_layout = prs.slide_layouts[6]  # blank
     slide = prs.slides.add_slide(slide_layout)
 
-    _add_title_bar(slide, prs, slide_data.title)
+    _add_title_bar(slide, prs, slide_data.title, style)
 
     if not slide_data.table_data:
         return
@@ -507,21 +570,11 @@ def _add_table_slide(prs, slide_data: SlideData):
     rows = len(slide_data.table_data)
     cols = max(len(r) for r in slide_data.table_data)
 
-    # Calculate available space
-    table_top = BODY_TOP
-    table_width = BODY_WIDTH
-    table_height = BODY_HEIGHT
-
     table = slide.shapes.add_table(
-        rows, cols,
-        left=MARGIN_LEFT,
-        top=table_top,
-        width=table_width,
-        height=table_height,
-    ).table
+        rows, cols, left=MARGIN_LEFT, top=BODY_TOP,
+        width=BODY_WIDTH, height=BODY_HEIGHT).table
 
-    # Distribute column widths evenly
-    col_width = int(table_width / cols)
+    col_width = int(BODY_WIDTH / cols)
     for c in range(cols):
         table.columns[c].width = col_width
 
@@ -535,15 +588,15 @@ def _add_table_slide(prs, slide_data: SlideData):
             run.text = cell_text
 
             if r_idx == 0:
-                # Header row styling
-                _set_font(run, size=FONT_SIZE_TABLE_HEADER, bold=True, color=COLOR_WHITE)
+                _set_font(run, style, size=FONT_SIZE_TABLE_HEADER, bold=True,
+                          color_override=RGBColor(0xFF, 0xFF, 0xFF))
                 cell.fill.solid()
-                cell.fill.fore_color.rgb = COLOR_TABLE_HEADER
+                cell.fill.fore_color.rgb = style.rgb("table_header")
             else:
-                _set_font(run, size=FONT_SIZE_TABLE, color=COLOR_DARK)
+                _set_font(run, style, size=FONT_SIZE_TABLE)
                 if r_idx % 2 == 0:
                     cell.fill.solid()
-                    cell.fill.fore_color.rgb = COLOR_TABLE_ALT
+                    cell.fill.fore_color.rgb = style.rgb("table_alt")
 
             cell.vertical_anchor = MSO_ANCHOR.MIDDLE
 
@@ -611,11 +664,11 @@ def _place_single_image(slide, img_path: Path, left, top, available_w, available
                              width=display_w, height=display_h)
 
 
-def _add_image_slide(prs, slide_data: SlideData, resource_path: str):
+def _add_image_slide(prs, slide_data: SlideData, resource_path: str, style: StyleConfig):
     """Generate image slide with title bar and one or more images."""
     slide_layout = prs.slide_layouts[6]  # blank
     slide = prs.slides.add_slide(slide_layout)
-    _add_title_bar(slide, prs, slide_data.title)
+    _add_title_bar(slide, prs, slide_data.title, style)
 
     # Collect image paths to render
     refs: list[str] = []
@@ -640,7 +693,7 @@ def _add_image_slide(prs, slide_data: SlideData, resource_path: str):
         p.alignment = PP_ALIGN.CENTER
         run = p.add_run()
         run.text = f"[图片未找到: {', '.join(refs)}]"
-        _set_font(run, size=FONT_SIZE_BODY, color=COLOR_ACCENT)
+        _set_font(run, style, size=FONT_SIZE_BODY, color_attr="accent")
         return
 
     n = len(found)
@@ -714,26 +767,30 @@ def _add_image_slide(prs, slide_data: SlideData, resource_path: str):
         p.alignment = PP_ALIGN.RIGHT
         run = p.add_run()
         run.text = f"[未找到: {', '.join(missing)}]"
-        _set_font(run, size=Pt(10), color=COLOR_ACCENT)
+        _set_font(run, style, size=Pt(10), color_attr="accent")
 
 
-def create_pptx(slides: list[SlideData], output_path: Path, resource_path: str = ".") -> None:
+def create_pptx(slides: list[SlideData], output_path: Path,
+                 resource_path: str = ".", style: StyleConfig | None = None) -> None:
     """Generate PPTX file from slide data."""
+    if style is None:
+        style = load_style()
+
     prs = Presentation()
     prs.slide_width = SLIDE_WIDTH
     prs.slide_height = SLIDE_HEIGHT
 
     for slide_data in slides:
         if slide_data.layout == "cover":
-            _add_cover_slide(prs, slide_data)
+            _add_cover_slide(prs, slide_data, style)
         elif slide_data.layout == "section":
-            _add_section_slide(prs, slide_data)
+            _add_section_slide(prs, slide_data, style)
         elif slide_data.layout == "content":
-            _add_content_slide(prs, slide_data)
+            _add_content_slide(prs, slide_data, style)
         elif slide_data.layout == "table":
-            _add_table_slide(prs, slide_data)
+            _add_table_slide(prs, slide_data, style)
         elif slide_data.layout == "image":
-            _add_image_slide(prs, slide_data, resource_path)
+            _add_image_slide(prs, slide_data, resource_path, style)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(output_path))
@@ -742,6 +799,7 @@ def create_pptx(slides: list[SlideData], output_path: Path, resource_path: str =
 # ── CLI ────────────────────────────────────────────────────────────
 
 def parse_args() -> argparse.Namespace:
+    style_names = ", ".join(STYLES.keys())
     parser = argparse.ArgumentParser(
         description="Convert Markdown file to PPTX (PowerPoint)."
     )
@@ -753,6 +811,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--resource-path", default=".",
         help="Path to resolve image references (default: .)",
+    )
+    parser.add_argument(
+        "--style", default=DEFAULT_STYLE,
+        help=f"Style preset ({style_names}) (default: {DEFAULT_STYLE})",
+    )
+    parser.add_argument(
+        "--style-file", default=None,
+        help="Custom style JSON file (from extract_style.py)",
     )
     return parser.parse_args()
 
@@ -768,15 +834,16 @@ def main() -> int:
     output_pptx = args.output if args.output else input_md.with_suffix(".pptx")
 
     try:
+        style = load_style(args.style, args.style_file)
         md_text = input_md.read_text(encoding="utf-8")
         sections = parse_markdown(md_text)
         slides = plan_slides(sections)
-        create_pptx(slides, output_pptx, args.resource_path)
+        create_pptx(slides, output_pptx, args.resource_path, style)
     except Exception as e:
         print(f"[ERROR] {e}")
         return 1
 
-    print(f"[OK] 转换完成: {output_pptx} ({len(slides)} 张幻灯片)")
+    print(f"[OK] 转换完成: {output_pptx} ({len(slides)} 张幻灯片) [风格: {style.name}]")
     return 0
 
 
