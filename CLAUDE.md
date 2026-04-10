@@ -8,10 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 处理多份中国建筑消防安全标准文档（GB 55037-2022 实施指南 Parts 1-01~1-05 及相关标准）。
 
-## Pipeline (3 Steps)
+## Pipeline
 
 ```
-PDF → MinerU解析 → Markdown + images/ → fix_mineru_md.py预处理 → pandoc → clean.docx → ima入库
+PDF → MinerU解析 → Markdown + images/ → fix_mineru_md.py预处理 ─┬→ pandoc → clean.docx → ima入库
+                                                                 └→ md_to_pptx.py → clean.pptx
 ```
 
 ### Step 1: MinerU解析 (already done)
@@ -32,6 +33,12 @@ Requires `pandoc`. Normalizes ATX headings then calls pandoc with `pipe_tables+g
 
 注意：需在文档数据目录下运行，pandoc 的 `--resource-path` 指向 `mineru_output` 以找到 `images/` 子目录。
 
+### Step 3 (并列): md转pptx
+```bash
+python ../../../scripts/md_to_pptx.py output/fixed.md -o output/clean.pptx --resource-path=mineru_output
+```
+使用 `python-pptx` 将 Markdown 转换为结构化 PowerPoint（16:9 宽屏）。设计风格参考 baoyu-slide-deck（corporate 风格）。自动拆分长内容、大表格，图片居中最大化显示。与 Step 3 的 docx 转换并列，独立使用。
+
 ### 一键批处理
 ```bash
 bash process_all.sh            # 处理所有文档
@@ -47,9 +54,15 @@ bash process_all.sh "GB+35181-2025"  # 只处理指定文档
 dataclear/
 ├── CLAUDE.md                   # 项目指引
 ├── .gitignore                  # 排除数据文件和敏感配置
-├── scripts/                    # 应用代码（唯一副本）
+├── .claude/skills/             # Claude Code Skills
+│   └── md-to-pptx/            #   Markdown→PPTX skill（独立产品）
+│       ├── SKILL.md            #     Skill 定义和工作流
+│       ├── scripts/md_to_pptx.py #  转换引擎
+│       └── references/         #     设计规范和内容规则
+├── scripts/                    # 应用代码
 │   ├── fix_mineru_md.py        #   HTML表格→Markdown表格预处理
-│   └── md_to_docx_pandoc.py    #   Markdown→docx转换
+│   ├── md_to_docx_pandoc.py    #   Markdown→docx转换
+│   └── md_to_pptx.py           #   → skill 入口（委托给 .claude/skills/）
 ├── docs/                       # 项目文档
 │   └── technical-spec.md       #   技术规格文档
 ├── config/                     # MinerU配置（gitignore排除）
@@ -65,7 +78,8 @@ dataclear/
 │           │   └── *.md        #     原始Markdown备份
 │           └── output/         #   处理产物
 │               ├── fixed.md    #     预处理后的中间稿
-│               └── clean.docx  #     最终docx
+│               ├── clean.docx  #     最终docx
+│               └── clean.pptx  #     最终pptx（可选）
 ```
 
 ### 文档目录列表
@@ -93,7 +107,8 @@ dataclear/
 |------|---------|---------|
 | MinerU | `pip install -U "mineru[all]"` | PDF解析 (already done) |
 | pandoc | `winget install --id JohnMacFarlane.Pandoc -e` | Markdown→docx |
-| Python 3.8+ | System (`python` on Windows, not `python3`) | Scripts use only stdlib |
+| python-pptx | `pip install python-pptx` | Markdown→pptx |
+| Python 3.8+ | System (`python` on Windows, not `python3`) | Scripts (fix_mineru_md.py 仅用 stdlib) |
 
 ## MinerU Config
 
