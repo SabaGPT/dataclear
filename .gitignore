@@ -12,5 +12,3 @@ data/
 *.tmp.md
 __pycache__/
 
-# 测试生成的输出文件
-.claude/skills/md-to-pptx/tests/*.pptx
